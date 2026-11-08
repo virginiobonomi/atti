@@ -43,3 +43,27 @@ main { padding-bottom: 150px; }
 .anteprima .c { text-align: center; } .anteprima .r { text-align: right; } .anteprima .j { text-align: justify; }
 .anteprima mark { background: #ffe066; color: #000; }
 .vuota { color: var(--muted); padding: 6px 2px; }
+
+/* editor del formulario */
+.velo { overflow: auto; }
+.ed-corpo { padding: 10px 12px 40px; display: flex; flex-direction: column; gap: 8px; }
+.ed-riga { display: flex; gap: 6px; align-items: flex-end; }
+.ed-riga > * { flex: 1; min-width: 0; }
+.ed-riga > button { flex: none; }
+.ed-barra { display: flex; flex-wrap: wrap; gap: 4px; position: sticky; top: 0; background: var(--bg); padding: 4px 0; z-index: 2; }
+.ed-btn { padding: 4px 8px; min-width: 30px; font-size: 13px; }
+.ed-btn.b { font-weight: 700; } .ed-btn.i { font-style: italic; } .ed-btn.u { text-decoration: underline; }
+.ed-btn.voce { margin-left: auto; color: var(--accent); }
+.ed-testo { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; min-height: 180px;
+  font-family: Arial, sans-serif; font-size: 13px; line-height: 1.55; outline: none; }
+.ed-testo:focus { border-color: var(--accent); }
+.ed-testo p { margin: 0 0 4px; }
+.ed-sc { font-variant: small-caps; }
+.ed-stop { display: inline; background: color-mix(in srgb, var(--accent) 16%, var(--card)); color: var(--accent); border-radius: 4px;
+  padding: 0 3px; cursor: pointer; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); white-space: normal; }
+.ed-stop.sel { background: var(--accent); color: #fff; }
+.ed-scheda { background: var(--card); border: 1px solid var(--accent); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.ed-scheda-testa { font-weight: 600; }
+.ed-campo { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.ed-campo small { color: var(--muted); }
+.ed-fonti { display: flex; flex-direction: column; gap: 4px; }

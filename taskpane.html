@@ -6,6 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=Edge">
   <title>Atti</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script src="lib/msal-browser.min.js"></script>
   <link rel="stylesheet" href="taskpane.css">
   <link rel="stylesheet" href="atti.css">
 </head>
@@ -17,6 +18,12 @@
     </header>
 
     <!-- 1. formulario -->
+    <section id="secAccesso" class="card" hidden>
+      <p><strong>Formulario dello studio</strong></p>
+      <p class="nota">Per leggere il formulario su SharePoint serve l'accesso con l'account Microsoft 365 dello studio (una volta sola su questo computer).</p>
+      <button type="button" id="accedi" class="primario">Accedi con l'account dello studio</button>
+    </section>
+
     <section id="secFormulario" class="card" hidden>
       <label id="zona" class="zona" tabindex="0">
         <input id="file" type="file" accept=".json,application/json" hidden>
@@ -35,7 +42,10 @@
             <div class="file-tipo" id="minutaNome"></div>
             <div class="file-nome" id="minutaCat"></div>
           </div>
-          <button class="link" type="button" id="cambiaMinuta">Cambia</button>
+          <div class="voce-azioni">
+            <button class="link" type="button" id="modificaMinuta" hidden>Modifica</button>
+            <button class="link" type="button" id="cambiaMinuta">Cambia</button>
+          </div>
         </div>
       </div>
       <div id="minutaElenco">
@@ -53,11 +63,22 @@
       <div id="stop"></div>
     </section>
 
+    <details id="secArchivio" class="card" hidden>
+      <summary>Formulario dello studio: modifica clausole e minute</summary>
+      <input type="search" id="cercaArchivio" placeholder="Cerca una clausola o una minuta da modificare">
+      <div id="risultatiArchivio" class="lista-minute"></div>
+      <div class="bottoni">
+        <button type="button" id="nuovaClausola">Nuova clausola</button>
+        <button type="button" id="nuovaMinuta">Nuova minuta</button>
+      </div>
+      <p class="nota" id="notaArchivio"></p>
+    </details>
+
     <details id="impostazioni" class="card">
       <summary>Opzioni</summary>
       <label class="check"><input type="checkbox" id="optFormato" checked>Arial 12 con interlinea esatta (uso bollo, come RedAtto)</label>
       <label class="check"><input type="checkbox" id="optSegnaposto" checked>Lascia evidenziate in giallo le voci non compilate</label>
-      <button type="button" id="aggiornaFormulario">Carica un formulario aggiornato</button>
+      <button type="button" id="aggiornaFormulario">Carica il formulario da un file (senza SharePoint)</button>
       <p class="nota" id="versione"></p>
     </details>
   </main>
@@ -87,8 +108,12 @@
     <div id="testoAnteprima" class="anteprima"></div>
   </div>
 
+  <div id="editor" class="velo" hidden></div>
+
   <script src="numeri.js"></script>
   <script src="motore.js"></script>
+  <script src="sharepoint.js"></script>
+  <script src="editor.js"></script>
   <script src="taskpane.js"></script>
 </body>
 </html>

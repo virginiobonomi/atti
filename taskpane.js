@@ -5,6 +5,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var inWord = false;
   var F = null, M = null;
+  var connesso = false, infoMod = {};   // collegato a SharePoint; modifiche al formulario di base
   var minuta = null, R = {};
   var ui = { filtro: "", soloDaFare: false, anteprime: {}, espansi: {} };
   var CHIAVE_OPZ = "atti.opzioni";
@@ -37,6 +38,46 @@
     $("versione").textContent = "Formulario del " + (F.versione || "?") + ": " + Object.keys(F.minute).length +
       " minute, " + Object.keys(F.clausole).length + " clausole.";
     return salvare ? idb(true, testo).catch(function () { /* resta in memoria solo per questa sessione */ }) : Promise.resolve();
+  }
+
+  function costruisci(esito, online) {
+    var dati = JSON.parse(esito.base);
+    infoMod = Archivio.applica(dati, esito.modifiche);
+    F = dati; M = Atti.crea(F);
+    connesso = online;
+    aggiornaVersione(online);
+  }
+
+  function aggiornaVersione(online) {
+    var n = Object.keys(infoMod).length;
+    $("versione").textContent = (online ? "Formulario dello studio su SharePoint" : "Copia locale del formulario (SharePoint non raggiungibile)") +
+      ": " + Object.keys(F.minute).length + " minute, " + Object.keys(F.clausole).length + " clausole" +
+      (n ? ", " + n + (n === 1 ? " modifica" : " modifiche") + " dello studio" : "") + ".";
+  }
+
+  function daSharePoint(interattivo) {
+    if (!window.Archivio) return Promise.reject(new Error("Modulo SharePoint non caricato."));
+    $("infoFormulario").textContent = "Collegamento al formulario dello studio…";
+    return (interattivo ? Archivio.accedi() : Promise.resolve()).then(function () {
+      return Archivio.sincronizza(function (msg) { $("infoFormulario").textContent = msg; });
+    }).then(function (esito) {
+      costruisci(esito, true);
+      $("infoFormulario").textContent = "Minute e clausole dello studio, con le scelte e i dati da compilare.";
+    });
+  }
+
+  function avviaFormulario() {
+    return daSharePoint(false).catch(function (e) {
+      if (e && e.accesso) { $("secAccesso").hidden = false; $("infoFormulario").textContent = "Serve l'accesso con l'account dello studio."; return; }
+      // SharePoint non raggiungibile: ultima copia scaricata, oppure formulario caricato da file
+      return (window.Archivio ? Archivio.daCache() : Promise.resolve(null)).then(function (c) {
+        if (c) { costruisci(c, false); stato("SharePoint non raggiungibile (" + (e && e.message ? e.message : e) + "): uso l'ultima copia scaricata.", "err"); return; }
+        return idb(false).then(function (testo) {
+          if (testo) return usaFormulario(testo, false);
+          stato("SharePoint non raggiungibile" + (e && e.message ? ": " + e.message : "") + ".", "err");
+        }).catch(function () {});
+      }).then(function () { $("infoFormulario").textContent = "Minute e clausole dello studio, con le scelte e i dati da compilare."; });
+    });
   }
 
   function caricaFile(file) {
@@ -289,6 +330,8 @@
     if (!c.manca) {
       riga.appendChild(el("button", { classe: "occhio", type: "button", title: "Mostra il testo", testo: ui.anteprime[chiaveAnteprima] ? "▾" : "▸",
         onclick: function () { ui.anteprime[chiaveAnteprima] = !ui.anteprime[chiaveAnteprima]; disegnaStop(); } }));
+      if (connesso) riga.appendChild(el("button", { classe: "occhio", type: "button", title: "Modifica la clausola nel formulario", testo: "✎",
+        onclick: function () { apriEditor("clausole", c.chiave); } }));
       if (ui.anteprime[chiaveAnteprima]) cont.appendChild(el("div", { classe: "anteprima-clausola", testo: testoClausola(M.doc(c.chiave)) }));
     }
     var wrap = el("div", {}, [riga, cont]);
@@ -306,6 +349,7 @@
       scelte.forEach(function (k, i) {
         var d = M.doc(k);
         var riga = el("div", { classe: "scelta-fatta" }, [el("span", { testo: (multipla ? (i + 1) + ". " : "") + (d ? d.nome : k) })]);
+        if (connesso && d) riga.appendChild(el("button", { type: "button", title: "Modifica la clausola nel formulario", testo: "✎", onclick: function () { apriEditor("clausole", k); } }));
         if (multipla && i > 0) {
           riga.appendChild(el("button", { type: "button", title: "Sposta su", testo: "↑", onclick: function () {
             var a = scelte.slice(); var t = a[i - 1]; a[i - 1] = a[i]; a[i] = t;
@@ -421,10 +465,109 @@
     });
   }
 
+  // ---------------------------------------------------------------- modifica del formulario
+
+  function chiaveNuova(sez, cat, nome) {
+    var k = ((cat ? cat.replace(/\\/g, "/").replace(/^\/+|\/+$/g, "") + "/" : "") + nome + (sez === "minute" ? ".sat" : ".sap")).toLowerCase();
+    return k.normalize ? k.normalize("NFC") : k;
+  }
+
+  function nomiCategorie() {
+    var visti = {}, out = [];
+    Object.keys(F.clausole).forEach(function (k) { var c = F.clausole[k].cat; if (c && !visti[c]) { visti[c] = 1; out.push(c); } });
+    return out.sort(function (a, b) { return a.localeCompare(b); });
+  }
+
+  function elencoClausole() {
+    return Object.keys(F.clausole).map(function (k) { return { chiave: k, nome: F.clausole[k].nome, cat: F.clausole[k].cat }; });
+  }
+
+  function dopoModifica(v) {
+    Object.assign(infoMod, Archivio.applica(F, [v]));
+    M = Atti.crea(F);
+    aggiornaVersione(true);
+  }
+
+  function apriEditor(sez, chiave) {
+    if (!connesso) { stato("Per modificare il formulario serve il collegamento a SharePoint.", "err"); return; }
+    var doc = chiave ? F[sez][chiave] : null;
+    var info = chiave ? infoMod[sez + "|" + chiave] : null;
+    Editor.apri($("editor"), {
+      sez: sez, chiave: chiave, doc: doc, nuovo: !chiave, info: info,
+      categorie: sez === "clausole" ? nomiCategorie() : Object.keys(F.minute).map(function (k) { return F.minute[k].cat; }).filter(function (c, i, a) { return c && a.indexOf(c) === i; }),
+      clausole: elencoClausole(),
+      salva: function (nuovoDoc) {
+        var k = chiave;
+        if (!k) {
+          k = chiaveNuova(sez, nuovoDoc.cat, nuovoDoc.nome);
+          if (F[sez][k]) return Promise.reject(new Error("Esiste già una " + (sez === "minute" ? "minuta" : "clausola") + " con questo nome in questa categoria."));
+        }
+        var eTag = infoMod[sez + "|" + k] ? infoMod[sez + "|" + k].eTag : null;
+        return Archivio.salva(sez, k, nuovoDoc, eTag).then(function (v) {
+          chiave = k;
+          dopoModifica(v);
+          info = infoMod[sez + "|" + k];
+          disegnaTutto();
+        });
+      },
+      elimina: function () {
+        var eTag = infoMod[sez + "|" + chiave] ? infoMod[sez + "|" + chiave].eTag : null;
+        return Archivio.salva(sez, chiave, null, eTag).then(function (v) {
+          dopoModifica(v);
+          if (sez === "minute" && minuta === chiave) minuta = null;
+          disegnaTutto();
+        });
+      },
+      ripristina: function () {
+        return Archivio.ripristina(info.id).then(function () { return daSharePoint(false); }).then(function () { disegnaTutto(); });
+      },
+      chiudi: function () { disegnaTutto(); }
+    });
+  }
+
+  function disegnaArchivio() {
+    if (!F || !$("secArchivio").open) return;
+    var cont = $("risultatiArchivio");
+    cont.innerHTML = "";
+    var parole = $("cercaArchivio").value.toLowerCase().split(/\s+/).filter(Boolean);
+    var modificate = Object.keys(infoMod).length;
+    $("notaArchivio").textContent = modificate ? modificate + (modificate === 1 ? " voce modificata" : " voci modificate") + " rispetto al formulario convertito da RedAtto." : "";
+    if (!parole.length) {
+      // senza ricerca: le ultime modificate
+      Object.keys(infoMod).slice(-30).reverse().forEach(function (k) {
+        var p = k.split("|"), d = F[p[0]][p[1]], im = infoMod[k];
+        cont.appendChild(rigaArchivio(p[0], p[1], d ? d.nome : p[1].split("/").pop(), (d ? d.cat : "") + (im.eliminata ? " · eliminata" : " · modificata" + (im.autore ? " da " + im.autore : "")), !d));
+      });
+      if (!modificate) cont.appendChild(el("div", { classe: "vuota", testo: "Scrivi per cercare tra " + Object.keys(F.clausole).length + " clausole e " + Object.keys(F.minute).length + " minute." }));
+      return;
+    }
+    var n = 0;
+    ["minute", "clausole"].forEach(function (sez) {
+      Object.keys(F[sez]).forEach(function (k) {
+        if (n >= 60) return;
+        var d = F[sez][k], t = (d.nome + " " + d.cat).toLowerCase();
+        if (!parole.every(function (p) { return t.indexOf(p) >= 0; })) return;
+        n++;
+        cont.appendChild(rigaArchivio(sez, k, d.nome, (sez === "minute" ? "Minuta · " : "") + d.cat + (infoMod[sez + "|" + k] ? " · modificata" : ""), false));
+      });
+    });
+    if (!n) cont.appendChild(el("div", { classe: "vuota", testo: "Nessun risultato." }));
+  }
+
+  function rigaArchivio(sez, k, nome, sotto, eliminata) {
+    return el("button", { classe: "minuta", type: "button", onclick: function () {
+      if (eliminata) { stato("Questa voce è stata eliminata: per riaverla usa \"Torna al testo originale\" dopo averla ricreata, oppure ripristinala da SharePoint.", "err"); return; }
+      apriEditor(sez, k);
+    } }, [el("div", { testo: "✎ " + nome }), el("div", { classe: "file-nome", testo: sotto })]);
+  }
+
   // ---------------------------------------------------------------- disegno generale
 
   function disegnaTutto() {
-    $("secFormulario").hidden = !!F;
+    $("secFormulario").hidden = !!F || !$("secAccesso").hidden;
+    if (F) $("secAccesso").hidden = true;
+    $("secArchivio").hidden = !F || !connesso;
+    $("modificaMinuta").hidden = !connesso;
     $("secMinuta").hidden = !F;
     var conMinuta = !!(F && minuta && F.minute[minuta]);
     $("minutaScelta").hidden = !conMinuta;
@@ -469,9 +612,20 @@
     $("alCursore").addEventListener("click", function () { scrivi("cursore"); });
     $("annulla").addEventListener("click", function () { $("conferma").hidden = true; $("bottoniPrincipali").hidden = false; });
 
-    idb(false).then(function (testo) {
-      if (testo) return usaFormulario(testo, false);
-    }).catch(function () { /* nessun formulario memorizzato */ }).then(function () {
+    $("accedi").addEventListener("click", function () {
+      stato("Accesso in corso…");
+      daSharePoint(true).then(function () {
+        $("secAccesso").hidden = true; stato("Collegato al formulario dello studio.", "ok");
+        ripristinaDaDocumento(); disegnaTutto();
+      }).catch(function (e) { stato("Accesso non riuscito: " + (e && e.message ? e.message : e), "err"); });
+    });
+    $("modificaMinuta").addEventListener("click", function () { apriEditor("minute", minuta); });
+    $("cercaArchivio").addEventListener("input", disegnaArchivio);
+    $("secArchivio").addEventListener("toggle", disegnaArchivio);
+    $("nuovaClausola").addEventListener("click", function () { apriEditor("clausole", null); });
+    $("nuovaMinuta").addEventListener("click", function () { apriEditor("minute", null); });
+
+    avviaFormulario().then(function () {
       ripristinaDaDocumento();
       disegnaTutto();
     });
