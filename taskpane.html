@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <title>Atti</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link rel="stylesheet" href="taskpane.css">
+  <link rel="stylesheet" href="atti.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Atti</h1>
+      <p class="sub" id="infoFormulario">Minute e clausole dello studio, con le scelte e i dati da compilare.</p>
+    </header>
+
+    <!-- 1. formulario -->
+    <section id="secFormulario" class="card" hidden>
+      <label id="zona" class="zona" tabindex="0">
+        <input id="file" type="file" accept=".json,application/json" hidden>
+        <span class="zona-titolo">Carica il formulario</span>
+        <span class="zona-sub">trascina qui il file formulario.json o clicca per sceglierlo</span>
+      </label>
+      <p class="nota">Il formulario resta solo su questo computer, dentro Word. Va caricato una volta
+        e di nuovo quando viene aggiornato.</p>
+    </section>
+
+    <!-- 2. minuta -->
+    <section id="secMinuta" class="card" hidden>
+      <div id="minutaScelta" hidden>
+        <div class="file-testa">
+          <div>
+            <div class="file-tipo" id="minutaNome"></div>
+            <div class="file-nome" id="minutaCat"></div>
+          </div>
+          <button class="link" type="button" id="cambiaMinuta">Cambia</button>
+        </div>
+      </div>
+      <div id="minutaElenco">
+        <input type="search" id="cercaMinuta" placeholder="Cerca la minuta (es. vendita, procura, donazione)">
+        <div id="listaMinute" class="lista-minute"></div>
+      </div>
+    </section>
+
+    <!-- 3. stop -->
+    <section id="secStop" hidden>
+      <div class="strumenti">
+        <input type="search" id="cercaStop" placeholder="Filtra le voci">
+        <label class="check piccolo"><input type="checkbox" id="soloDaFare">solo da compilare</label>
+      </div>
+      <div id="stop"></div>
+    </section>
+
+    <details id="impostazioni" class="card">
+      <summary>Opzioni</summary>
+      <label class="check"><input type="checkbox" id="optFormato" checked>Arial 12 con interlinea esatta (uso bollo, come RedAtto)</label>
+      <label class="check"><input type="checkbox" id="optSegnaposto" checked>Lascia evidenziate in giallo le voci non compilate</label>
+      <button type="button" id="aggiornaFormulario">Carica un formulario aggiornato</button>
+      <p class="nota" id="versione"></p>
+    </details>
+  </main>
+
+  <footer id="barra" hidden>
+    <span id="conteggio"></span>
+    <div id="conferma" class="conferma" hidden>
+      <span>Il documento non è vuoto.</span>
+      <div class="bottoni">
+        <button type="button" id="sostituisci">Sostituisci tutto</button>
+        <button type="button" id="alCursore">Inserisci al cursore</button>
+        <button type="button" id="annulla" class="link">Annulla</button>
+      </div>
+    </div>
+    <div class="bottoni" id="bottoniPrincipali">
+      <button id="anteprima" type="button">Anteprima</button>
+      <button id="scrivi" type="button" class="primario">Scrivi l'atto nel documento</button>
+    </div>
+    <p id="stato" class="stato"></p>
+  </footer>
+
+  <div id="velo" class="velo" hidden>
+    <div class="velo-testa">
+      <strong>Anteprima</strong>
+      <button class="chiudi" type="button" id="chiudiVelo">✕</button>
+    </div>
+    <div id="testoAnteprima" class="anteprima"></div>
+  </div>
+
+  <script src="numeri.js"></script>
+  <script src="motore.js"></script>
+  <script src="taskpane.js"></script>
+</body>
+</html>

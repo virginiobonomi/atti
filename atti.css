@@ -1,0 +1,45 @@
+/* aggiunte al foglio di stile comune (taskpane.css) */
+main { padding-bottom: 150px; }
+.piccolo { font-size: 12px; margin: 0; white-space: nowrap; }
+.lista-minute { max-height: 340px; overflow: auto; margin-top: 8px; }
+.gruppo { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 10px 0 4px; }
+.minuta { display: block; width: 100%; text-align: left; border: none; background: none; padding: 5px 6px; border-radius: 6px; }
+.minuta:hover { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+
+.sezione { font-weight: 600; margin: 16px 2px 6px; font-size: 13px; }
+.voce { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; margin-bottom: 6px; }
+.voce.fatta { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.voce.annidata { margin-left: 12px; border-left: 3px solid color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.voce.annidata2 { margin-left: 24px; }
+.voce.annidata3 { margin-left: 36px; }
+.voce-testa { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.voce-nome { font-weight: 600; }
+.voce-azioni { display: flex; gap: 8px; flex: none; }
+.voce-azioni .link { font-size: 12px; }
+.contesto { color: var(--muted); font-size: 12px; margin: 2px 0 6px; line-height: 1.35; word-break: break-word; }
+.contesto mark { background: color-mix(in srgb, #ffd60a 55%, transparent); color: inherit; border-radius: 3px; padding: 0 2px; }
+.clausola-di { color: var(--muted); font-size: 11px; margin-bottom: 2px; }
+.scelte { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.scelta { padding: 4px 8px; border-radius: 14px; font-size: 12px; }
+.scelta.attiva { background: var(--accent); border-color: var(--accent); color: #fff; }
+.clausole { display: flex; flex-direction: column; gap: 4px; }
+.clausola { display: flex; align-items: flex-start; gap: 6px; }
+.clausola > button.nome { flex: 1; text-align: left; padding: 5px 8px; font-size: 12px; }
+.clausola > button.nome.attiva { background: var(--accent); border-color: var(--accent); color: #fff; }
+.clausola > button.occhio { flex: none; padding: 5px 7px; font-size: 12px; }
+.clausola.manca > button.nome { opacity: .5; }
+.scelte-fatte { display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px; }
+.scelta-fatta { display: flex; align-items: center; gap: 6px; background: color-mix(in srgb, var(--accent) 10%, var(--card)); border-radius: 7px; padding: 4px 8px; font-size: 12px; }
+.scelta-fatta span { flex: 1; }
+.scelta-fatta button { border: none; background: none; padding: 0 3px; cursor: pointer; color: var(--muted); }
+.anteprima-clausola { white-space: pre-wrap; font-size: 12px; background: var(--bg); border-radius: 7px; padding: 6px 8px; margin: 2px 0 4px; max-height: 220px; overflow: auto; }
+.resa { color: var(--muted); font-size: 12px; margin-top: 4px; }
+.conferma { margin: 6px 0; }
+.velo { position: fixed; inset: 0; background: var(--bg); z-index: 10; display: flex; flex-direction: column; }
+.velo[hidden] { display: none; }
+.velo-testa { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.anteprima { flex: 1; overflow: auto; padding: 12px; font-family: Arial, sans-serif; font-size: 12.5px; line-height: 1.6; }
+.anteprima p { margin: 0; }
+.anteprima .c { text-align: center; } .anteprima .r { text-align: right; } .anteprima .j { text-align: justify; }
+.anteprima mark { background: #ffe066; color: #000; }
+.vuota { color: var(--muted); padding: 6px 2px; }
