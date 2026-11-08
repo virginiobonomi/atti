@@ -74,25 +74,6 @@
       <p class="nota" id="notaArchivio"></p>
     </details>
 
-    <details id="secStampa" class="card">
-      <summary>Stampa dell'originale</summary>
-      <label for="modelloStampa" class="campo-et">Modello</label>
-      <select id="modelloStampa">
-        <option value="a4-25">A4 · 25 righe</option>
-        <option value="a4-50">A4 · 50 righe</option>
-        <option value="a3-25">A3 a libretto · 25 righe</option>
-        <option value="a3-50">A3 a libretto · 50 righe</option>
-      </select>
-      <label class="check"><input type="checkbox" id="interlineato" checked>Interlineato (righe completate con trattini)</label>
-      <label class="check"><input type="checkbox" id="uniforma" checked>Tutto in Arial 12</label>
-      <button type="button" id="creaOriginale" class="primario">Crea l'originale</button>
-      <p class="nota">Si apre un nuovo documento pronto per la stampa; la bozza resta com'è.
-        Per non interlineare un paragrafo, chiudilo con uno spazio unificatore (Mac: Opzione+Spazio;
-        Windows: Ctrl+Maiusc+Spazio); per una singola riga, vai a capo con Maiusc+Invio.
-        A3: stampa fronte-retro, lato corto: Word impagina il libretto.</p>
-      <p id="statoStampa" class="stato"></p>
-    </details>
-
     <details id="impostazioni" class="card">
       <summary>Opzioni</summary>
       <label class="check"><input type="checkbox" id="optFormato" checked>Arial 12 con interlinea esatta (uso bollo, come RedAtto)</label>
@@ -131,8 +112,6 @@
 
   <script src="numeri.js"></script>
   <script src="motore.js"></script>
-  <script src="lib/jszip.min.js"></script>
-  <script src="stampa.js"></script>
   <script src="sharepoint.js"></script>
   <script src="editor.js"></script>
   <script src="taskpane.js"></script>

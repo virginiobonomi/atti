@@ -561,33 +561,6 @@
     } }, [el("div", { testo: "✎ " + nome }), el("div", { classe: "file-nome", testo: sotto })]);
   }
 
-  // ---------------------------------------------------------------- stampa dell'originale
-
-  function statoStampa(msg, tipo) { var s = $("statoStampa"); s.textContent = msg || ""; s.className = "stato" + (tipo ? " " + tipo : ""); }
-
-  function creaOriginale() {
-    if (!inWord) { statoStampa("Il pannello non è aperto dentro Word.", "err"); return; }
-    if (Office.context.requirements && !Office.context.requirements.isSetSupported("WordApi", "1.3")) {
-      statoStampa("Questa versione di Word non permette di creare un nuovo documento dal pannello: aggiorna Word.", "err"); return;
-    }
-    var opzStampa = { modello: $("modelloStampa").value, interlineato: $("interlineato").checked, uniforma: $("uniforma").checked };
-    try { window.localStorage.setItem("atti.stampa", JSON.stringify(opzStampa)); } catch (e) { /* ignora */ }
-    statoStampa("Preparazione dell'originale…");
-    Word.run(function (ctx) {
-      var ox = ctx.document.body.getOoxml();
-      return ctx.sync().then(function () {
-        return Stampa.originale(ox.value, opzStampa);
-      }).then(function (b64) {
-        ctx.application.createDocument(b64).open();
-        return ctx.sync();
-      });
-    }).then(function () {
-      statoStampa("Originale creato (" + Stampa.MODELLI[opzStampa.modello].nome + (opzStampa.interlineato ? ", interlineato" : "") + "): è nella nuova finestra.", "ok");
-    }).catch(function (e) {
-      statoStampa("Non riuscito: " + (e && e.message ? e.message : e), "err");
-    });
-  }
-
   // ---------------------------------------------------------------- disegno generale
 
   function disegnaTutto() {
@@ -647,11 +620,6 @@
       }).catch(function (e) { stato("Accesso non riuscito: " + (e && e.message ? e.message : e), "err"); });
     });
     $("modificaMinuta").addEventListener("click", function () { apriEditor("minute", minuta); });
-    try {
-      var os = JSON.parse(window.localStorage.getItem("atti.stampa") || "null");
-      if (os) { $("modelloStampa").value = os.modello; $("interlineato").checked = os.interlineato !== false; $("uniforma").checked = os.uniforma !== false; }
-    } catch (e) { /* ignora */ }
-    $("creaOriginale").addEventListener("click", creaOriginale);
     $("cercaArchivio").addEventListener("input", disegnaArchivio);
     $("secArchivio").addEventListener("toggle", disegnaArchivio);
     $("nuovaClausola").addEventListener("click", function () { apriEditor("clausole", null); });
