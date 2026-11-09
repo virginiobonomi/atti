@@ -47,8 +47,14 @@
             <button class="link" type="button" id="cambiaMinuta">Cambia</button>
           </div>
         </div>
+        <button class="link piccolo" type="button" id="minutaCompleta"
+          title="Scrive la minuta con tutte le clausole possibili sviluppate, una sotto l'altra">Minuta completa (tutte le clausole)</button>
       </div>
       <div id="minutaElenco">
+        <div class="schede" role="tablist">
+          <button type="button" role="tab" id="schedaMinute" class="attiva">Minute</button>
+          <button type="button" role="tab" id="schedaClausole">Clausole singole</button>
+        </div>
         <input type="search" id="cercaMinuta" placeholder="Cerca la minuta (es. vendita, procura, donazione)">
         <div id="listaMinute" class="lista-minute"></div>
       </div>

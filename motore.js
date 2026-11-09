@@ -195,7 +195,7 @@
     }
 
     function elenco(chiaveMinuta, R) {
-      var m = F.minute[chiaveMinuta];
+      var m = radice(chiaveMinuta);
       var out = [];
       if (!m) return out;
       function giro(d, prefisso, livello, nomeClausola) {
@@ -246,9 +246,12 @@
     // ------------------------------------------------ atto compilato
 
     // paragrafi in uscita: { a, li, fi, r: [ {t, b, i, u, k, hl} | {br:1} ] }
+    // punto di partenza: una minuta oppure una singola clausola (le chiavi non si sovrappongono: .sat / .sap)
+    function radice(k) { return F.minute[k] || F.clausole[k] || null; }
+
     function compila(chiaveMinuta, R, opz) {
       opz = opz || {};
-      var m = F.minute[chiaveMinuta];
+      var m = radice(chiaveMinuta);
       if (!m) return [];
       var profondita = 0;
 
@@ -327,6 +330,75 @@
       return out;
     }
 
+    // minuta con tutte le clausole possibili sviluppate (esempio / consultazione).
+    // Ogni clausola si sviluppa per intero la prima volta; le volte successive si rinvia alla prima.
+    function compilaCompleta(chiaveMinuta, opz) {
+      opz = opz || {};
+      var maxProf = opz.profondita || 8, PASSO = 425;
+      var m = radice(chiaveMinuta);
+      if (!m) return [];
+      var out = [], sviluppate = {}, blocchi = {};
+
+      function runTesto(x) {
+        var r = { t: x.t };
+        ["b", "i", "u", "k"].forEach(function (k) { if (x[k]) r[k] = 1; });
+        return r;
+      }
+      function segnaposto(x, st) {
+        if (st.t !== "LC" && st.v && st.v.length) {
+          return "[" + st.v.map(function (v) { return v.trim() === "" ? "(niente)" : v.trim(); }).join(" / ") + "]";
+        }
+        var l = x.l.trim() || st.n;
+        return /^\[[\s\S]*\]$/.test(l) ? l : "[" + l + "]";
+      }
+      function espandi(d, livello, catena) {
+        var rientro = livello * PASSO;
+        d.p.forEach(function (par) {
+          var cur = { a: par.a || "l", li: (par.li || 0) + rientro, fi: par.fi || 0, r: [] };
+          var liste = [];
+          par.x.forEach(function (x) {
+            if (x.t !== undefined) { cur.r.push(runTesto(x)); return; }
+            if (x.br) { cur.r.push({ br: 1 }); return; }
+            var st = d.s[x.s] || { n: x.l, t: "T" };
+            if (st.t === "LC") {
+              var m2 = x.l.match(/^(\s*)([\s\S]*?)(\s*)$/);
+              cur.r.push({ t: m2[1] + "[" + (m2[2] || st.n) + " ▼]" + m2[3], hl: "cyan", b: 1 });
+              liste.push(st);
+              return;
+            }
+            var m3 = x.l.match(/^(\s*)[\s\S]*?(\s*)$/);
+            cur.r.push({ t: m3[1] + segnaposto(x, st) + m3[2], hl: 1 });
+          });
+          out.push(cur);
+          liste.forEach(function (st) { blocco(st, livello, catena); });
+        });
+      }
+      function blocco(st, livello, catena) {
+        var rientro = (livello + 1) * PASSO;
+        var cand = candidati(st);
+        var firma = cand.map(function (c) { return c.chiave || c.nome; }).join("|");
+        if (cand.length > 1 && blocchi[firma]) {
+          out.push({ a: "l", li: rientro, r: [{ t: "▼ " + st.n + " — stesse " + cand.length + " clausole già sviluppate sopra (in «" + blocchi[firma] + "»)", i: 1, col: "1F4E79" }] });
+          return;
+        }
+        blocchi[firma] = st.n;
+        out.push({ a: "l", li: rientro, r: [{ t: "▼ " + st.n + " — " + (st.f === 2 ? "una o più clausole" : "una clausola") + " tra " + cand.length + ":", b: 1, col: "1F4E79" }] });
+        cand.forEach(function (c, i) {
+          var cat = c.chiave && F.clausole[c.chiave] ? F.clausole[c.chiave].cat : "";
+          out.push({ a: "l", li: rientro, r: [{ t: (i + 1) + ". " + c.nome, b: 1, col: "C00000" }, { t: cat ? "   (" + cat + ")" : "", col: "808080" }] });
+          if (c.manca || !c.chiave) { out.push({ a: "l", li: rientro, r: [{ t: "(non presente nel formulario)", i: 1, col: "808080" }] }); return; }
+          if (catena.indexOf(c.chiave) >= 0) { out.push({ a: "l", li: rientro, r: [{ t: "(richiama sé stessa: non sviluppata di nuovo)", i: 1, col: "808080" }] }); return; }
+          if (sviluppate[c.chiave]) { out.push({ a: "l", li: rientro, r: [{ t: "(testo già riportato sopra, in «" + sviluppate[c.chiave] + "»)", i: 1, col: "808080" }] }); return; }
+          if (livello + 1 >= maxProf) { out.push({ a: "l", li: rientro, r: [{ t: "(annidata troppo in profondità: non sviluppata)", i: 1, col: "808080" }] }); return; }
+          sviluppate[c.chiave] = st.n;
+          espandi(F.clausole[c.chiave], livello + 1, catena.concat([c.chiave]));
+        });
+        out.push({ a: "l", li: rientro, r: [{ t: "▲ fine " + st.n, i: 1, col: "1F4E79" }] });
+      }
+      espandi(m, 0, []);
+      return out;
+    }
+
     function testo(paragrafi) {
       return paragrafi.map(function (p) {
         return p.r.map(function (r) { return r.br ? "\n" : r.t; }).join("");
@@ -334,9 +406,15 @@
     }
 
     return {
-      F: F, candidati: candidati, elenco: elenco, compila: compila, testo: testo, doc: doc,
+      F: F, candidati: candidati, elenco: elenco, compila: compila, compilaCompleta: compilaCompleta, testo: testo, doc: doc,
       minute: function () {
         return Object.keys(F.minute).map(function (k) { return { chiave: k, nome: F.minute[k].nome, cat: F.minute[k].cat }; });
+      },
+      clausole: function () {
+        return Object.keys(F.clausole).map(function (k) { return { chiave: k, nome: F.clausole[k].nome, cat: F.clausole[k].cat, clausola: true }; });
+      },
+      radice: radice,
+      eClausola: function (k) { return !F.minute[k] && !!F.clausole[k];
       }
     };
   }
@@ -364,7 +442,8 @@
         if (r.br) return "<w:r><w:br/></w:r>";
         if (!r.t) return "";
         var rpr = rprBase + (r.b ? "<w:b/>" : "") + (r.i ? "<w:i/>" : "") + (r.k ? "<w:smallCaps/>" : "") +
-          (r.u ? '<w:u w:val="single"/>' : "") + (r.hl ? '<w:highlight w:val="yellow"/>' : "");
+          (r.col ? '<w:color w:val="' + r.col + '"/>' : "") + (r.u ? '<w:u w:val="single"/>' : "") +
+          (r.hl ? '<w:highlight w:val="' + (typeof r.hl === "string" ? r.hl : "yellow") + '"/>' : "");
         return r.t.split("\t").map(function (pezzo, i) {
           return (i ? "<w:r>" + (rpr ? "<w:rPr>" + rpr + "</w:rPr>" : "") + "<w:tab/></w:r>" : "") +
             (pezzo ? "<w:r>" + (rpr ? "<w:rPr>" + rpr + "</w:rPr>" : "") + '<w:t xml:space="preserve">' + esc(pezzo) + "</w:t></w:r>" : "");

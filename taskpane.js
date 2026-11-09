@@ -7,7 +7,8 @@
   var F = null, M = null;
   var connesso = false, infoMod = {};   // collegato a SharePoint; modifiche al formulario di base
   var minuta = null, R = {};
-  var ui = { filtro: "", soloDaFare: false, anteprime: {}, espansi: {} };
+  var ui = { filtro: "", soloDaFare: false, anteprime: {}, espansi: {}, cercaIn: "minute" };
+  var memo = {};   // risposte già date, per minuta o clausola, durante la sessione
   var CHIAVE_OPZ = "atti.opzioni";
   var opz = { formato: true, segnaposto: true };
   try { var o = JSON.parse(window.localStorage.getItem(CHIAVE_OPZ) || "null"); if (o) { opz.formato = o.formato !== false; opz.segnaposto = o.segnaposto !== false; } } catch (e) { /* ignora */ }
@@ -95,6 +96,7 @@
   var timerSalva = null;
   function salvaStato() {
     clearTimeout(timerSalva);
+    if (minuta && M && M.eClausola(minuta)) return;   // una clausola singola non sostituisce l'atto salvato nel documento
     timerSalva = setTimeout(function () {
       var dati = { m: minuta, r: R };
       if (inWord && Office.context.document.settings) {
@@ -114,7 +116,7 @@
       if (inWord && Office.context.document.settings) dati = Office.context.document.settings.get("atti");
       else dati = JSON.parse(window.localStorage.getItem("atti.prova") || "null");
     } catch (e) { dati = null; }
-    if (dati && dati.m && F && F.minute[dati.m]) { minuta = dati.m; R = dati.r || {}; }
+    if (dati && dati.m && F && F.minute[dati.m]) { minuta = dati.m; R = dati.r || {}; memo[minuta] = R; }
   }
 
   // ---------------------------------------------------------------- utilità interfaccia
@@ -149,7 +151,8 @@
     var cont = $("listaMinute");
     cont.innerHTML = "";
     var parole = $("cercaMinuta").value.toLowerCase().split(/\s+/).filter(Boolean);
-    var lista = M.minute().filter(function (m) {
+    var clausole = ui.cercaIn === "clausole";
+    var lista = (clausole ? M.clausole() : M.minute()).filter(function (m) {
       var t = (m.nome + " " + m.cat).toLowerCase();
       return parole.every(function (p) { return t.indexOf(p) >= 0; });
     });
@@ -161,15 +164,17 @@
     var gruppo = null, n = 0;
     lista.forEach(function (m) {
       if (++n > 300) return;
-      if (m.cat !== gruppo) { gruppo = m.cat; cont.appendChild(el("div", { classe: "gruppo", testo: m.cat || "Minute" })); }
+      if (m.cat !== gruppo) { gruppo = m.cat; cont.appendChild(el("div", { classe: "gruppo", testo: m.cat || (clausole ? "Clausole" : "Minute") })); }
       cont.appendChild(el("button", { classe: "minuta", type: "button", testo: m.nome, onclick: function () { scegliMinuta(m.chiave); } }));
     });
-    if (!lista.length) cont.appendChild(el("div", { classe: "vuota", testo: "Nessuna minuta trovata." }));
+    if (n > 300) cont.appendChild(el("div", { classe: "vuota", testo: "Altri " + (n - 300) + " risultati: affina la ricerca." }));
+    if (!lista.length) cont.appendChild(el("div", { classe: "vuota", testo: clausole ? "Nessuna clausola trovata." : "Nessuna minuta trovata." }));
   }
 
   function scegliMinuta(k) {
-    if (minuta && minuta !== k && Object.keys(R).length) R = {};
+    if (minuta) memo[minuta] = R;
     minuta = k;
+    R = memo[k] || {};
     ui.espansi = {}; ui.anteprime = {};
     salvaStato();
     disegnaTutto();
@@ -441,15 +446,25 @@
     return Atti.ooxml(compila(), opz.formato ? { font: "Arial", dimensione: 12, interlinea: 562 } : { font: "" });
   }
 
-  function scrivi(modo) {
+  // completa = true: minuta con tutte le clausole possibili sviluppate (esempio, non un atto)
+  var ultimoCompleta = false;
+  function scrivi(modo, completa) {
     if (!inWord) { stato("Il pannello non è aperto dentro Word.", "err"); return; }
+    if (completa === undefined) completa = modo ? ultimoCompleta : false;
+    ultimoCompleta = completa;
     var x;
-    try { x = ooxml(); } catch (e) { stato("Errore nella composizione: " + e.message, "err"); return; }
+    try {
+      x = completa
+        ? Atti.ooxml(M.compilaCompleta(minuta), opz.formato ? { font: "Arial", dimensione: 12, interlinea: 0 } : { font: "" })
+        : ooxml();
+    } catch (e) { stato("Errore nella composizione: " + e.message, "err"); return; }
+    if (completa) stato("Composizione della minuta completa…");
     Word.run(function (ctx) {
       var body = ctx.document.body;
       body.load("text");
       return ctx.sync().then(function () {
         var vuoto = !String(body.text || "").trim();
+        if (!vuoto && !modo && M.eClausola(minuta)) modo = "cursore";
         if (!vuoto && !modo) return "chiedi";
         if (vuoto || modo === "sostituisci") body.insertOoxml(x, "Replace");
         else ctx.document.getSelection().insertOoxml(x, "Replace");
@@ -458,7 +473,8 @@
     }).then(function (esito) {
       if (esito === "chiedi") { $("conferma").hidden = false; $("bottoniPrincipali").hidden = true; return; }
       $("conferma").hidden = true; $("bottoniPrincipali").hidden = false;
-      stato("Atto scritto nel documento.", "ok");
+      stato(completa ? "Versione completa scritta nel documento: ▼ apre ogni elenco di clausole, ▲ lo chiude."
+        : M.eClausola(minuta) ? "Clausola inserita nel documento." : "Atto scritto nel documento.", "ok");
     }).catch(function (e) {
       $("conferma").hidden = true; $("bottoniPrincipali").hidden = false;
       stato("Scrittura non riuscita" + (e && e.message ? ": " + e.message : "."), "err");
@@ -569,15 +585,19 @@
     $("secArchivio").hidden = !F || !connesso;
     $("modificaMinuta").hidden = !connesso;
     $("secMinuta").hidden = !F;
-    var conMinuta = !!(F && minuta && F.minute[minuta]);
+    var conMinuta = !!(F && minuta && M.radice(minuta));
+    var eClausola = conMinuta && M.eClausola(minuta);
     $("minutaScelta").hidden = !conMinuta;
     $("minutaElenco").hidden = conMinuta;
     $("secStop").hidden = !conMinuta;
     $("barra").hidden = !conMinuta;
     if (!F) return;
     if (conMinuta) {
-      $("minutaNome").textContent = F.minute[minuta].nome;
-      $("minutaCat").textContent = F.minute[minuta].cat;
+      var rad = M.radice(minuta);
+      $("minutaNome").textContent = rad.nome;
+      $("minutaCat").textContent = (eClausola ? "Clausola · " : "") + (rad.cat || "");
+      $("minutaCompleta").textContent = eClausola ? "Versione completa (tutte le sotto-clausole)" : "Minuta completa (tutte le clausole)";
+      $("scrivi").textContent = eClausola ? "Inserisci la clausola al cursore" : "Scrivi l'atto nel documento";
       disegnaStop();
     } else disegnaMinute();
   }
@@ -594,7 +614,16 @@
     });
     $("aggiornaFormulario").addEventListener("click", function () { input.click(); });
     $("cercaMinuta").addEventListener("input", disegnaMinute);
-    $("cambiaMinuta").addEventListener("click", function () { minuta = null; disegnaTutto(); $("cercaMinuta").focus(); });
+    var scheda = function (dove) {
+      ui.cercaIn = dove;
+      $("schedaMinute").classList.toggle("attiva", dove === "minute");
+      $("schedaClausole").classList.toggle("attiva", dove === "clausole");
+      $("cercaMinuta").placeholder = dove === "clausole" ? "Cerca la clausola (es. ipoteca, urbanistica, prezzo)" : "Cerca la minuta (es. vendita, procura, donazione)";
+      disegnaMinute(); $("cercaMinuta").focus();
+    };
+    $("schedaMinute").addEventListener("click", function () { scheda("minute"); });
+    $("schedaClausole").addEventListener("click", function () { scheda("clausole"); });
+    $("cambiaMinuta").addEventListener("click", function () { if (minuta) memo[minuta] = R; minuta = null; disegnaTutto(); $("cercaMinuta").focus(); });
     $("cercaStop").addEventListener("input", function () { ui.filtro = $("cercaStop").value; disegnaStop(); });
     $("soloDaFare").addEventListener("change", function () { ui.soloDaFare = $("soloDaFare").checked; disegnaStop(); });
     $("optFormato").checked = opz.formato;
@@ -607,7 +636,8 @@
     $("optSegnaposto").addEventListener("change", salvaOpz);
     $("anteprima").addEventListener("click", mostraAnteprima);
     $("chiudiVelo").addEventListener("click", function () { $("velo").hidden = true; });
-    $("scrivi").addEventListener("click", function () { scrivi(null); });
+    $("scrivi").addEventListener("click", function () { scrivi(null, false); });
+    $("minutaCompleta").addEventListener("click", function () { scrivi(null, true); });
     $("sostituisci").addEventListener("click", function () { scrivi("sostituisci"); });
     $("alCursore").addEventListener("click", function () { scrivi("cursore"); });
     $("annulla").addEventListener("click", function () { $("conferma").hidden = true; $("bottoniPrincipali").hidden = false; });
@@ -619,7 +649,7 @@
         ripristinaDaDocumento(); disegnaTutto();
       }).catch(function (e) { stato("Accesso non riuscito: " + (e && e.message ? e.message : e), "err"); });
     });
-    $("modificaMinuta").addEventListener("click", function () { apriEditor("minute", minuta); });
+    $("modificaMinuta").addEventListener("click", function () { apriEditor(M.eClausola(minuta) ? "clausole" : "minute", minuta); });
     $("cercaArchivio").addEventListener("input", disegnaArchivio);
     $("secArchivio").addEventListener("toggle", disegnaArchivio);
     $("nuovaClausola").addEventListener("click", function () { apriEditor("clausole", null); });
